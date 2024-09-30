@@ -1,17 +1,24 @@
-# API Documentation
+# API Docs
 
-## TOC
+English / [中文](api_CN.md)
 
-- [Before You Start: Launch the Backend Service](#before-you-start-launch-the-backend-service)
-- [Interface Function Descriptions](#interface-function-descriptions)
-- [Python Request Example](#python-request-example)
-  - [Python Requests Method](#1️⃣-python-requests-method)
-  - [Python Script Method](#2️⃣-python-script-request-method)
-- [Java Request Example](#java-request-example)
+## Table of Contents
 
-## Before You Start: Launch the Backend Service
+- [Before You Start: Start the Backend Service](#before-you-start-start-the-backend-service)
+- [API Functionality Description](#api-functionality-description)
+  - [1. Generate ID Photo (Transparent Background)](#1-generate-id-photo-transparent-background)
+  - [2. Add Background Color](#2-add-background-color)
+  - [3. Generate Six-Inch Layout Photo](#3-generate-six-inch-layout-photo)
+  - [4. Human Matting](#4-human-matting)
+  - [5. Add Watermark to Image](#5-add-watermark-to-image)
+  - [6. Set Image KB Size](#6-set-image-kb-size)
+  - [7. ID Photo Cropping](#7-id-photo-cropping)
+- [cURL Request Examples](#curl-request-examples)
+- [Python Request Examples](#python-request-examples)
 
-Before making API requests, please run the backend service:
+## Before You Start: Start the Backend Service
+
+Before making API requests, please run the backend service.
 
 ```bash
 python deploy_api.py
@@ -19,54 +26,329 @@ python deploy_api.py
 
 <br>
 
-## Interface Function Descriptions
+## API Functionality Description
 
 ### 1. Generate ID Photo (Transparent Background)
 
-Interface Name: `idphoto`
+API Name: `idphoto`
 
-The `Generate ID Photo` interface logic involves sending an RGB image and receiving a standard ID photo and a high-definition ID photo:
+The logic of the `Generate ID Photo` API is to send an RGB image and output a standard ID photo and a high-definition ID photo:
 
-- **High-Definition ID Photo**: An ID photo made according to the aspect ratio of `size`, with the filename being `output_image_dir` appended with `_hd` suffix.
-- **Standard ID Photo**: A photo with dimensions equal to `size`, scaled from the high-definition ID photo, with the filename being `output_image_dir`.
+- **High-definition ID Photo**: An ID photo created based on the aspect ratio of `size`, with the filename having `_hd` appended to `output_image_dir`.
+- **Standard ID Photo**: The size equals `size`, scaled from the high-definition ID photo, with the filename as `output_image_dir`.
 
-It should be noted that both generated photos are transparent (RGBA four-channel images). To produce a complete ID photo, the following `Add Background Color` interface is also required.
+It is important to note that both generated photos are transparent (RGBA four-channel images). To create a complete ID photo, you will also need to use the `Add Background Color` API below.
 
-> Q: Why is this design used?  
-> A: In actual products, users often need to frequently switch background colors to preview effects. Providing a transparent background image and allowing the front-end JavaScript code to synthesize the color offers a better user experience.
+> Q: Why is it designed this way?  
+> A: Because in actual products, users frequently switch background color preview effects, providing a transparent background image for the front-end JS code to composite colors is a better experience.
+
+**Request Parameters:**
+
+| Parameter Name | Type | Required | Description |
+| :--- | :--- | :--- | :--- |
+| input_image | file | Choose one of `input_image` or `input_image_base64` | The input image file, which needs to be an RGB three-channel image. |
+| input_image_base64 | str | Choose one of `input_image` or `input_image_base64` | The base64 encoding of the input image file, which needs to be an RGB three-channel image. |
+| height | int | No | The height of the standard ID photo, with a default value of `413`. |
+| width | int | No | The width of the standard ID photo, with a default value of `295`. |
+| human_matting_model | str | No | The human segmentation model, with a default value of `modnet_photographic_portrait_matting`. Available values are `modnet_photographic_portrait_matting`, `hivision_modnet`, `rmbg-1.4`, and `birefnet-v1-lite`. |
+| face_detect_model | str | No | The face detection model, with a default value of `mtcnn`. Available values are `mtcnn`, `face_plusplus`, and `retinaface-resnet50`. |
+| hd | bool | No | Whether to generate a high-definition ID photo, with a default value of `true`. |
+| dpi | int | No | The image resolution, with a default value of `300`. |
+| face_alignment | bool | No | Whether to perform face alignment, with a default value of `true`. |
+| head_measure_ratio | float | No | The ratio of the face area to the photo area, with a default value of `0.2`. |
+| head_height_ratio | float | No | The ratio of the face center to the top of the photo, with a default value of `0.45`. |
+| top_distance_max | float | No | The maximum ratio of the head to the top of the photo, with a default value of `0.12`. |
+| top_distance_min | float | No | The minimum ratio of the head to the top of the photo, with a default value of `0.1`. |
+
+**Return Parameters:**
+
+| Parameter Name | Type | Description |
+| :--- | :--- | :--- |
+| status | str | The status of the request, with a default value of `success`. |
+| image_base64_standard | str | The base64 encoding of the standard ID photo. |
+| image_base64_hd | str | The base64 encoding of the high-definition ID photo. |
 
 ### 2. Add Background Color
 
-Interface Name: `add_background`
+API Name: `add_background`
 
-The `Add Background Color` interface logic involves sending an RGBA image, adding a background color based on `color`, and synthesizing a JPG image.
+The logic of the `Add Background Color` API is to receive an RGBA image (transparent image) and add a background color based on `color`, composing a JPG image.
 
-### 3. Generate 6-inch Layout Photo
+**Request Parameters:**
 
-Interface Name: `generate_layout_photos`
+| Parameter Name | Type | Required | Description |
+| :--- | :--- | :--- | :--- |
+| input_image | file | Choose one of `input_image` or `input_image_base64` | The input image file, which needs to be an RGB three-channel image. |
+| input_image_base64 | str | Choose one of `input_image` or `input_image_base64` | The base64 encoding of the input image file, which needs to be an RGB three-channel image. |
+| color | str | Yes | The background color in hexadecimal format, e.g., `#000000` for black. |
+| kb | int | No | The target file size in KB. If the specified KB value is less than the original file, it adjusts the compression rate. If the specified KB value is greater than the source file, it increases the KB value by adding information to the file header, aiming for the final size of the image to match the specified KB value. |
+| render | int | No | The rendering mode, with a default value of `0`. Available values are `0`, `1`, and `2`. |
+| dpi | int | No | The image resolution, with a default value of `300`. |
 
-The `Generate 6-inch Layout Photo` interface logic involves sending an RGB image (usually an ID photo after adding a background color), arranging the photos according to `size`, and then generating a 6-inch layout photo.
+**Return Parameters:**
+
+| Parameter Name | Type | Description |
+| :--- | :--- | :--- |
+| status | str | The status of the request, with a default value of `success`. |
+| image_base64 | str | The base64 encoding of the image with the background color added. |
+
+
+
+### 3. Generate Six-Inch Layout Photo
+
+API Name: `generate_layout_photos`
+
+The logic of the `Generate Six-Inch Layout Photo` API is to receive an RGB image (usually the ID photo after adding background color), arrange the photos based on `size`, and then generate a six-inch layout photo.
+
+**Request Parameters:**
+
+| Parameter Name | Type | Required | Description |
+| :--- | :--- | :--- | :--- |
+| input_image | file | Choose one of `input_image` or `input_image_base64` | The input image file, which needs to be an RGB three-channel image. |
+| input_image_base64 | str | Choose one of `input_image` or `input_image_base64` | The base64 encoding of the input image file, which needs to be an RGB three-channel image. |
+| height | int | No | The height of the standard ID photo, with a default value of `413`. |
+| width | int | No | The width of the standard ID photo, with a default value of `295`. |
+| kb | int | No | The target file size in KB. If the specified KB value is less than the original file, it adjusts the compression rate. If the specified KB value is greater than the source file, it increases the KB value by adding information to the file header, aiming for the final size of the image to match the specified KB value. |
+| dpi | int | No | The image resolution, with a default value of `300`. |
+
+**Return Parameters:**
+
+| Parameter Name | Type | Description |
+| :--- | :--- | :--- |
+| status | str | The status of the request, with a default value of `success`. |
+| image_base64 | str | The base64 encoding of the six-inch layout photo. |
+
+
+
+
+### 4. Human Matting
+
+API Name: `human_matting`
+
+The logic of the `Human Matting` API is to receive an RGB image and output a standard matting portrait and a high-definition matting portrait (without any background filling).
+
+**Request Parameters:**
+
+| Parameter Name | Type | Required | Description |
+| :--- | :--- | :--- | :--- |
+| input_image | file | Choose one of `input_image` or `input_image_base64` | The input image file, which needs to be an RGB three-channel image. |
+| input_image_base64 | str | Choose one of `input_image` or `input_image_base64` | The base64 encoding of the input image file, which needs to be an RGB three-channel image. |
+| human_matting_model | str | No | The human segmentation model, with a default value of `modnet_photographic_portrait_matting`. Available values are `modnet_photographic_portrait_matting`, `hivision_modnet`, `rmbg-1.4`, and `birefnet-v1-lite`. |
+| dpi | int | No | The image resolution, with a default value of `300`. |
+
+**Return Parameters:**
+
+| Parameter Name | Type | Description |
+| :--- | :--- | :--- |
+| status | str | The status of the request, with a default value of `success`. |
+| image_base64 | str | The base64 encoding of the human matting portrait. |
+
+
+
+
+### 5. Add Watermark to Image
+
+API Name: `watermark`
+
+The functionality of the `Add Watermark to Image` API is to receive a watermark text and add the specified watermark to the original image. Users can specify attributes such as the watermark's position, opacity, and size to seamlessly blend the watermark into the original image.
+
+**Request Parameters:**
+
+| Parameter Name | Type | Required | Description |
+| :--- | :--- | :--- | :--- |
+| input_image | file | Choose one of `input_image` or `input_image_base64` | The input image file, which needs to be an RGB three-channel image. |
+| input_image_base64 | str | Choose one of `input_image` or `input_image_base64` | The base64 encoding of the input image file, which needs to be an RGB three-channel image. |
+| text | str | Yes | The watermark text to be added. |
+| size | int | No | The size of the watermark text, with a default value of `20`. |
+| opacity | float | No | The opacity of the watermark text, with a default value of `0.5`. |
+| angle | int | No | The angle of the watermark text, with a default value of `30`. |
+| color | str | No | The color of the watermark text, with a default value of `#000000`. |
+| space | int | No | The space between the watermark text and the image, with a default value of `25`. |
+| dpi | int | No | The image resolution, with a default value of `300`. |
+
+**Return Parameters:**
+
+| Parameter Name | Type | Description |
+| :--- | :--- | :--- |
+| status | str | The status of the request, with a default value of `success`. |
+
+
+
+### 6. Set Image KB Size
+
+API Name: `set_kb`
+
+The functionality of the `Set Image KB Size` API is to receive an image and a target file size (in KB). If the specified KB value is less than the original file, it adjusts the compression rate. If the specified KB value is greater than the source file, it increases the KB value by adding information to the file header, aiming for the final size of the image to match the specified KB value.
+
+**Request Parameters:**
+
+| Parameter Name | Type | Required | Description |
+| :--- | :--- | :--- | :--- |
+| input_image | file | Choose one of `input_image` or `input_image_base64` | The input image file, which needs to be an RGB three-channel image. |
+| input_image_base64 | str | Choose one of `input_image` or `input_image_base64` | The base64 encoding of the input image file, which needs to be an RGB three-channel image. |
+| kb | int | Yes | The target file size in KB. |
+| dpi | int | No | The image resolution, with a default value of `300`. |
+
+**Return Parameters:**
+
+| Parameter Name | Type | Description |
+| :--- | :--- | :--- |
+| status | str | The status of the request, with a default value of `success`. |
+| image_base64 | str | The base64 encoding of the image with the specified KB size. |
+
+
+
+
+### 7. ID Photo Cropping
+
+API Name: `idphoto_crop`
+
+The functionality of the `ID Photo Cropping` API is to receive an RGBA image (transparent image) and output a standard ID photo and a high-definition ID photo.
+
+**Request Parameters:**
+
+| Parameter Name | Type | Required | Description |
+| :--- | :--- | :--- | :--- |
+| input_image | file | Choose one of `input_image` or `input_image_base64` | The input image file, which needs to be an RGB three-channel image. |
+| input_image_base64 | str | Choose one of `input_image` or `input_image_base64` | The base64 encoding of the input image file, which needs to be an RGB three-channel image. |
+| height | int | Yes | The height of the standard ID photo. |
+| width | int | Yes | The width of the standard ID photo. |
+| face_detect_model | str | No | The face detection model, with a default value of `mtcnn`. Available values are `mtcnn`, `face_plusplus`, and `retinaface-resnet50`. |
+| hd | bool | No | Whether to generate a high-definition ID photo, with a default value of `true`. |
+| dpi | int | No | The image resolution, with a default value of `300`. |
+| head_measure_ratio | float | No | The ratio of the face area to the photo area, with a default value of `0.2`. |
+| head_height_ratio | float | No | The ratio of the face center to the top of the photo, with a default value of `0.45`. |
+| top_distance_max | float | No | The maximum ratio of the head to the top of the photo, with a default value of `0.12`. |
+| top_distance_min | float | No | The minimum ratio of the head to the top of the photo, with a default value of `0.1`. |
+
+**Return Parameters:**
+
+| Parameter Name | Type | Description |
+| :--- | :--- | :--- |
+| status | str | The status of the request, with a default value of `success`. |
+| image_base64 | str | The base64 encoding of the ID photo. |
+
+
 
 <br>
 
-## Python Request Example
+## cURL Request Examples
 
-### 1️⃣ Python Requests Method
+cURL is a command-line tool for transferring data using various network protocols. Here are examples of using cURL to call these APIs.
+
+### 1. Generate ID Photo (Transparent Background)
+
+```bash
+curl -X POST "http://127.0.0.1:8080/idphoto" \
+-F "input_image=@demo/images/test0.jpg" \
+-F "height=413" \
+-F "width=295" \
+-F "human_matting_model=modnet_photographic_portrait_matting" \
+-F "face_detect_model=mtcnn" \
+-F "hd=true" \
+-F "dpi=300" \
+-F "face_alignment=true"
+```
+
+### 2. Add Background Color
+
+```bash
+curl -X POST "http://127.0.0.1:8080/add_background" \
+-F "input_image=@test.png" \
+-F "color=638cce" \
+-F "kb=200" \
+-F "render=0" \
+-F "dpi=300"
+```
+
+### 3. Generate Six-Inch Layout Photo
+
+```bash
+curl -X POST "http://127.0.0.1:8080/generate_layout_photos" \
+-F "input_image=@test.jpg" \
+-F "height=413" \
+-F "width=295" \
+-F "kb=200" \
+-F "dpi=300"
+```
+
+### 4. Human Matting
+
+```bash
+curl -X POST "http://127.0.0.1:8080/human_matting" \
+-F "input_image=@demo/images/test0.jpg" \
+-F "human_matting_model=modnet_photographic_portrait_matting" \
+-F "dpi=300"
+```
+
+### 5. Add Watermark to Image
+```bash
+curl -X 'POST' \
+  'http://127.0.0.1:8080/watermark?size=20&opacity=0.5&angle=30&color=%23000000&space=25' \
+  -H 'accept: application/json' \
+  -H 'Content-Type: multipart/form-data' \
+  -F 'input_image=@demo/images/test0.jpg;type=image/jpeg' \
+  -F 'text=Hello' \
+  -F 'dpi=300'
+```
+
+### 6. Set Image KB Size
+```bash
+curl -X 'POST' \
+  'http://127.0.0.1:8080/set_kb' \
+  -H 'accept: application/json' \
+  -H 'Content-Type: multipart/form-data' \
+  -F 'input_image=@demo/images/test0.jpg;type=image/jpeg' \
+  -F 'kb=50' \
+  -F 'dpi=300'
+```
+
+### 7. ID Photo Cropping
+```bash
+curl -X 'POST' \
+  'http://127.0.0.1:8080/idphoto_crop?head_measure_ratio=0.2&head_height_ratio=0.45&top_distance_max=0.12&top_distance_min=0.1' \
+  -H 'accept: application/json' \
+  -H 'Content-Type: multipart/form-data' \
+  -F 'input_image=@idphoto_matting.png;type=image/png' \
+  -F 'height=413' \
+  -F 'width=295' \
+  -F 'face_detect_model=mtcnn' \
+  -F 'hd=true' \
+  -F 'dpi=300'
+```
+
+<br>
+
+## Python Request Examples
 
 #### 1. Generate ID Photo (Transparent Background)
-
 ```python
 import requests
 
 url = "http://127.0.0.1:8080/idphoto"
-input_image_path = "images/test.jpg"
+input_image_path = "demo/images/test0.jpg"
 
+# Set request parameters
+params = {
+    "head_measure_ratio": 0.2,
+    "head_height_ratio": 0.45,
+    "top_distance_max": 0.12,
+    "top_distance_min": 0.1,
+}
 files = {"input_image": open(input_image_path, "rb")}
-data = {"height": 413, "width": 295}
+data = {
+    "height": 413,
+    "width": 295,
+    "human_matting_model": "modnet_photographic_portrait_matting",
+    "face_detect_model": "mtcnn",
+    "hd": True,
+    "dpi": 300,
+    "face_alignment": True,
+}
 
-response = requests.post(url, files=files, data=data).json()
+response = requests.post(url, params=params, files=files, data=data).json()
 
-# response is a JSON dictionary containing status, image_base64_standard, and image_base64_hd
+# response is a JSON formatted dictionary containing status, image_base64_standard, and image_base64_hd
 print(response)
 ```
 
@@ -79,15 +361,20 @@ url = "http://127.0.0.1:8080/add_background"
 input_image_path = "test.png"
 
 files = {"input_image": open(input_image_path, "rb")}
-data = {"color": '638cce', 'kb': None}
+data = {
+    "color": '638cce',
+    "kb": None,
+    "render": 0,
+    "dpi": 300,
+}
 
 response = requests.post(url, files=files, data=data).json()
 
-# response is a JSON dictionary containing status and image_base64
+# response is a JSON formatted dictionary containing status and image_base64
 print(response)
 ```
 
-#### 3. Generate 6-inch Layout Photo
+#### 3. Generate Six-Inch Layout Photo
 
 ```python
 import requests
@@ -96,339 +383,131 @@ url = "http://127.0.0.1:8080/generate_layout_photos"
 input_image_path = "test.jpg"
 
 files = {"input_image": open(input_image_path, "rb")}
-data = {"height": 413, "width": 295, "kb": 200}
+data = {
+    "height": 413,
+    "width": 295,
+    "kb": 200,
+    "dpi": 300,
+}
 
 response = requests.post(url, files=files, data=data).json()
 
-# response is a JSON dictionary containing status and image_base64
+# response is a JSON formatted dictionary containing status and image_base64
 print(response)
 ```
 
-<br>
+#### 4. Human Matting
 
-### 2️⃣ Python Script Request Method
+```python
+import requests
 
-```bash
-python requests_api.py -u <URL> -t <TYPE> -i <INPUT_IMAGE_DIR> -o <OUTPUT_IMAGE_DIR> [--height <HEIGHT>] [--width <WIDTH>] [-c <COLOR>] [-k <KB>]
-```
+url = "http://127.0.0.1:8080/human_matting"
+input_image_path = "test.jpg"
 
-#### Parameter Descriptions
-
-##### Basic Parameters
-
-- `-u`, `--url`
-
-  - **Description**: The URL of the API service.
-  - **Default Value**: `http://127.0.0.1:8080`
-
-- `-t`, `--type`
-
-  - **Description**: The type of API request, with optional values being `idphoto`, `add_background`, and `generate_layout_photos`. They represent ID photo creation, transparent image background addition, and layout photo generation, respectively.
-  - **Default Value**: `idphoto`
-
-- `-i`, `--input_image_dir`
-
-  - **Description**: The path of the input image.
-  - **Required**: Yes
-  - **Example**: `./input_images/photo.jpg`
-
-- `-o`, `--output_image_dir`
-  - **Description**: The path to save the image.
-  - **Required**: Yes
-  - **Example**: `./output_images/processed_photo.jpg`
-
-##### Optional Parameters
-
-- `--height`
-
-  - **Description**: The height of the output size for the standard ID photo.
-  - **Default Value**: 413
-
-- `--width`
-
-  - **Description**: The width of the output size for the standard ID photo.
-  - **Default Value**: 295
-
-- `-c`, `--color`
-
-  - **Description**: Adds a background color to the transparent image, in Hex format (e.g., #638cce), only effective when the type is `add_background`.
-  - **Default Value**: `638cce`
-
-- `-k`, `--kb`
-  - **Description**: The KB value of the output photo, only effective when the type is `add_background` or `generate_layout_photos`, and no setting is made when the value is None.
-  - **Default Value**: `None`
-  - **Example**: `50`
-
-#### 1. Generate ID Photo (Transparent Background)
-
-```bash
-python requests_api.py  \
-    -u http://127.0.0.1:8080 \
-    -t idphoto \
-    -i ./photo.jpg \
-    -o ./idphoto.png \
-    --height 413 \
-    --width 295
-```
-
-#### 2. Add Background Color
-
-```bash
-python requests_api.py  \
-    -u http://127.0.0.1:8080  \
-    -t add_background  \
-    -i ./idphoto.png  \
-    -o ./idphoto_with_background.jpg  \
-    -c 638cce  \
-    -k 50
-```
-
-#### 3. Generate 6-inch Layout Photo
-
-```bash
-python requests_api.py  \
-    -u http://127.0.0.1:8080  \
-    -t generate_layout_photos  \
-    -i ./idphoto_with_background.jpg  \
-    -o ./layout_photo.jpg  \
-    --height 413  \
-    --width 295 \
-    -k 200
-```
-
-#### Request Failure Scenarios
-
-- The request fails if more than one face is detected in the photo.
-
-## Java Request Example
-
-### Add Maven Dependency
-
-```java
-        <dependency>
-            <groupId>cn.hutool</groupId>
-            <artifactId>hutool-all</artifactId>
-            <version>5.8.16</version>
-        </dependency>
-
-        <dependency>
-            <groupId>commons-io</groupId>
-            <artifactId>commons-io</artifactId>
-            <version>2.6</version>
-        </dependency>
-```
-
-### Running the Code
-
-#### 1. Generate ID Photo (Transparent Background)
-
-```java
-    /**
-     * Generate ID Photo (Transparent Background) /idphoto interface
-     * @param inputImageDir File address
-     * @return
-     * @throws IOException
-     */
-    public static String requestIdPhoto(String inputImageDir) throws IOException {
-        String url = BASE_URL+"/idphoto";
-        // Create file object
-        File inputFile = new File(inputImageDir);
-        Map<String, Object> paramMap=new HashMap<>();
-        paramMap.put("input_image",inputFile);
-        paramMap.put("height","413");
-        paramMap.put("width","295");
-        // Contains status, image_base64_standard, and image_base64_hd
-        return HttpUtil.post(url, paramMap);
-    }
-```
-
-#### 2. Add Background Color
-
-```java
-    /**
-     * Add Background Color /add_background interface
-     * @param inputImageDir File address
-     * @return
-     * @throws IOException
-     */
-    public static String requestAddBackground(String inputImageDir) throws IOException {
-        String url = BASE_URL+"/add_background";
-        // Create file object
-        File inputFile = new File(inputImageDir);
-        Map<String, Object> paramMap=new HashMap<>();
-        paramMap.put("input_image",inputFile);
-        paramMap.put("color","638cce");
-        paramMap.put("kb","200");
-        // Response is a JSON dictionary containing status and image_base64
-        return HttpUtil.post(url, paramMap);
-    }
-```
-
-#### 3. Generate 6-inch Layout Photo
-
-```java
-    /**
-     * Generate 6-inch Layout Photo /generate_layout_photos interface
-     * @param inputImageDir File address
-     * @return
-     * @throws IOException
-     */
-    public static String requestGenerateLayoutPhotos(String inputImageDir) throws IOException {
-        String url = BASE_URL+"/generate_layout_photos";
-        // Create file object
-        File inputFile = new File(inputImageDir);
-        Map<String, Object> paramMap=new HashMap<>();
-        paramMap.put("input_image",inputFile);
-        paramMap.put("height","413");
-        paramMap.put("width","295");
-        paramMap.put("kb","200");
-        // Response is a JSON dictionary containing status and image_base64
-        return HttpUtil.post(url, paramMap);
-    }
-```
-
-#### 4. Summary
-
-```java
-
-import cn.hutool.http.HttpUtil;
-import cn.hutool.json.JSONObject;
-import cn.hutool.json.JSONUtil;
-import org.apache.commons.io.FileUtils;
-import org.springframework.util.StringUtils;
-import java.io.File;
-import java.io.IOException;
-import java.util.Base64;
-import java.util.HashMap;
-import java.util.Map;
-
-/**
- * @author: qingshuang
- * @createDate: 2024/09/05
- * @description: Java generate ID photo, test case
- */
-public class Test {
-    /**
-     * Interface address
-     */
-    private final static String BASE_URL = "http://127.0.0.1:8080";
-
-    /**
-     * Generate ID Photo (Transparent Background) /idphoto interface
-     * @param inputImageDir File address
-     * @return
-     * @throws IOException
-     */
-    public static String requestIdPhoto(String inputImageDir) throws IOException {
-        String url = BASE_URL+"/idphoto";
-        // Create file object
-        File inputFile = new File(inputImageDir);
-        Map<String, Object> paramMap=new HashMap<>();
-        paramMap.put("input_image",inputFile);
-        paramMap.put("height","413");
-        paramMap.put("width","295");
-        return HttpUtil.post(url, paramMap);
-    }
-    /**
-     * Add Background Color /add_background interface
-     * @param inputImageDir File address
-     * @return
-     * @throws IOException
-     */
-    public static String requestAddBackground(String inputImageDir) throws IOException {
-        String url = BASE_URL+"/add_background";
-        // Create file object
-        File inputFile = new File(inputImageDir);
-        Map<String, Object> paramMap=new HashMap<>();
-        paramMap.put("input_image",inputFile);
-        paramMap.put("color","638cce");
-        paramMap.put("kb","200");
-        return HttpUtil.post(url, paramMap);
-    }
-    /**
-     * Generate 6-inch Layout Photo /generate_layout_photos interface
-     * @param inputImageDir File address
-     * @return
-     * @throws IOException
-     */
-    public static String requestGenerateLayoutPhotos(String inputImageDir) throws IOException {
-        String url = BASE_URL+"/generate_layout_photos";
-        // Create file object
-        File inputFile = new File(inputImageDir);
-        Map<String, Object> paramMap=new HashMap<>();
-        paramMap.put("input_image",inputFile);
-        paramMap.put("height","413");
-        paramMap.put("width","295");
-        paramMap.put("kb","200");
-        return HttpUtil.post(url, paramMap);
-    }
-    /**
-     * Generate ID Photo (Transparent Background)
-     * @param inputImageDir Source file address
-     * @param outputImageDir Output file address
-     * @throws IOException
-     */
-    private static void requestIdPhotoToImage(String inputImageDir, String outputImageDir) throws IOException {
-        String res =requestIdPhoto(inputImageDir);
-        // Convert to JSON
-        JSONObject response= JSONUtil.parseObj(res);
-        if(response.getBool("status")){// Request interface success
-            String  image_base64_standard= response.getStr("image_base64_standard");
-            String  image_base64_hd =response.getStr("image_base64_hd");
-            String[] outputImageDirArr= StringUtils.split(outputImageDir,".");
-            // Base64 save as image
-            FileUtils.writeByteArrayToFile(new File(outputImageDirArr[0]+"_standard."+outputImageDirArr[1]),  Base64.getDecoder().decode(image_base64_standard));
-            FileUtils.writeByteArrayToFile(new File(outputImageDirArr[0]+"_hd."+outputImageDirArr[1]),  Base64.getDecoder().decode(image_base64_hd));
-        }
-    }
-    /**
-     * Add Background Color
-     * @param inputImageDir Source file address
-     * @param outputImageDir Output file address
-     * @throws IOException
-     */
-    private static void requestAddBackgroundToImage(String inputImageDir, String outputImageDir) throws IOException {
-        String res =requestAddBackground(inputImageDir);
-        // Convert to JSON
-        JSONObject response= JSONUtil.parseObj(res);
-        if(response.getBool("status")){// Request interface success
-            String  image_base64= response.getStr("image_base64");
-            String[] outputImageDirArr= StringUtils.split(outputImageDir,".");
-            // Base64 save as image
-            FileUtils.writeByteArrayToFile(new File(outputImageDirArr[0]+"_background."+outputImageDirArr[1]),  Base64.getDecoder().decode(image_base64));
-        }
-    }
-    /**
-     * Generate 6-inch Layout Photo
-     * @param inputImageDir Source file address
-     * @param outputImageDir Output file address
-     * @throws IOException
-     */
-    private static void requestGenerateLayoutPhotosToImage(String inputImageDir, String outputImageDir) throws IOException {
-        String res =requestGenerateLayoutPhotos(inputImageDir);
-        // Convert to JSON
-        JSONObject response= JSONUtil.parseObj(res);
-        if(response.getBool("status")){// Request interface success
-            String  image_base64= response.getStr("image_base64");
-            String[] outputImageDirArr= StringUtils.split(outputImageDir,".");
-            // Base64 save as image
-            FileUtils.writeByteArrayToFile(new File(outputImageDirArr[0]+"_layout."+outputImageDirArr[1]),  Base64.getDecoder().decode(image_base64));
-        }
-    }
-
-    public static void main(String[] args) {
-        try {
-            // Generate ID Photo (Transparent Background)
-            requestIdPhotoToImage("C:\\Users\\Administrator\\Desktop\\1111.jpg","C:\\Users\\Administrator\\Desktop\\2222.png");
-            // Add Background Color
-            requestAddBackgroundToImage("C:\\Users\\Administrator\\Desktop\\2222_hd.png","C:\\Users\\Administrator\\Desktop\\idphoto_with_background.jpg");
-            // Generate 6-inch Layout Photo
-            requestGenerateLayoutPhotosToImage("C:\\Users\\Administrator\\Desktop\\1111.jpg","C:\\Users\\Administrator\\Desktop\\2222.png");
-
-        } catch (IOException e) {
-            e.printStackTrace();
-        }
-    }
+files = {"input_image": open(input_image_path, "rb")}
+data = {
+    "human_matting_model": "modnet_photographic_portrait_matting",
+    "dpi": 300,
 }
 
+response = requests.post(url, files=files, data=data).json()
+
+# response is a JSON formatted dictionary containing status and image_base64
+print(response)
+```
+
+#### 5. Add Watermark to Image
+
+```python
+import requests
+
+# Set the request URL and parameters
+url = "http://127.0.0.1:8080/watermark"
+params = {
+    "size": 20,
+    "opacity": 0.5,
+    "angle": 30,
+    "color": "#000000",
+    "space": 25,
+}
+
+# Set file and other form data
+input_image_path = "demo/images/test0.jpg"
+files = {"input_image": open(input_image_path, "rb")}
+data = {"text": "Hello", "dpi": 300}
+
+# Send POST request
+response = requests.post(url, params=params, files=files, data=data)
+
+# Check response
+if response.ok:
+    # Output response content
+    print(response.json())
+else:
+    # Output error message
+    print(f"Request failed with status code {response.status_code}: {response.text}")
+```
+
+### 6. Set Image KB Size
+
+```python
+import requests
+
+# Set the request URL
+url = "http://127.0.0.1:8080/set_kb"
+
+# Set file and other form data
+input_image_path = "demo/images/test0.jpg"
+files = {"input_image": open(input_image_path, "rb")}
+data = {"kb": 50, "dpi": 300}
+
+# Send POST request
+response = requests.post(url, files=files, data=data)
+
+# Check response
+if response.ok:
+    # Output response content
+    print(response.json())
+else:
+    # Output error message
+    print(f"Request failed with status code {response.status_code}: {response.text}")
+```
+
+### 7. ID Photo Cropping
+
+```python
+import requests
+
+# Set the request URL
+url = "http://127.0.0.1:8080/idphoto_crop"
+
+# Set request parameters
+params = {
+    "head_measure_ratio": 0.2,
+    "head_height_ratio": 0.45,
+    "top_distance_max": 0.12,
+    "top_distance_min": 0.1,
+}
+
+# Set file and other form data
+input_image_path = "idphoto_matting.png"
+files = {"input_image": ("idphoto_matting.png", open(input_image_path, "rb"), "image/png")}
+data = {
+    "height": 413,
+    "width": 295,
+    "face_detect_model": "mtcnn",
+    "hd": "true",
+    "dpi": 300,
+}
+
+# Send POST request
+response = requests.post(url, params=params, files=files, data=data)
+
+# Check response
+if response.ok:
+    # Output response content
+    print(response.json())
+else:
+    # Output error message
+    print(f"Request failed with status code {response.status_code}: {response.text}")
 ```
