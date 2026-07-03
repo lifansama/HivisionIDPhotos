@@ -1,10 +1,17 @@
 *.pyc
-**/__pycache__
+**/__pycache__/
 .idea
 .vscode/*
+.history
 .DS_Store
-hivision_modnet.onnx
-output/*.jpg
+.env
+demo/kb_output/*.jpg
+demo/kb_output/*.png
+scripts/sync_swanhub.py
+scripts/sync_huggingface.py
+scripts/sync_modelscope.py
+scripts/sync_all.py
+**/flagged/
 # build outputs
 dist
 build
@@ -12,3 +19,12 @@ build
 *.pth
 *.pt
 *.onnx
+*.mnn
+test/temp/*
+!test/temp/.gitkeep
+
+.python-version
+
+# Ignore .png and .jpg files in the root directory
+/*.png
+/*.jpg
